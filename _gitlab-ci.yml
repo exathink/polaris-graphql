@@ -1,0 +1,48 @@
+  variables:
+    DOCKER_REGISTRY: registry.gitlab.com
+    DUMP_TEST_LOGS_TO_STDOUT: "true"
+
+
+  before_script:
+    - export PATH=${CI_PROJECT_DIR}:${PATH}
+    - echo "DOCKER_REGISTRY_TRUSTED_ENVIRONMENT=${DOCKER_REGISTRY_TRUSTED_ENVIRONMENT}"
+    - eval $(docker-machine env)
+    - git submodule sync polaris-build
+    - git submodule update --init --remote polaris-build
+
+  stages:
+    - build
+    - test
+    - push
+    - cleanup
+
+  build-package-image:
+    stage: build
+    tags:
+      - polaris-runner
+    script:
+        - git submodule sync --recursive
+        - package submodule_update checkout-clean "${CI_COMMIT_REF_NAME}"
+        - package build
+
+  test:
+    stage: test
+    tags:
+      - polaris-runner
+    script:
+        - package test-package
+
+  push:
+    stage: push
+    tags:
+      - polaris-runner
+    script:
+      - package push
+  cleanup:
+    tags:
+      - polaris-runner
+    stage: cleanup
+    script: package down
+
+
+    
