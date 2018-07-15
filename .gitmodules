@@ -1,0 +1,3 @@
+[submodule "polaris-build"]
+	path = polaris-build
+	url = ../../polaris-common/polaris-build
