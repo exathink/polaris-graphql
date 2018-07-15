@@ -1,2 +1,5 @@
 argh
 pytest
+graphene==2.1.2
+graphene-sqlalchemy==2.0.0
+

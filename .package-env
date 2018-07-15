@@ -1,4 +1,4 @@
 #!/usr/bin/env bash
 
-export BUILDER_IMAGE=${REGISTRY_POLARIS_BUILD_PATH}polaris-python-build-base:latest
-export RELEASE_IMAGE=${REGISTRY_POLARIS_BUILD_PATH}polaris-python-build-base:latest
+export BUILDER_IMAGE=${REGISTRY_POLARIS_BUILD_PATH}polaris-python-builder-db:latest
+export RELEASE_IMAGE=${REGISTRY_POLARIS_BUILD_PATH}polaris-python-release-db:latest
