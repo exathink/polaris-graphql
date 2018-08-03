@@ -20,15 +20,9 @@ from graphql_relay.connection.arrayconnection import connection_from_list_slice,
 
 
 class ConnectionQuery(ABC):
-    def __init__(self, session, **args):
-        self.session = session
-        self.args = args
+    def __init__(self, **kwargs):
         self.limit = None
         self.offset = None
-
-    def count(self):
-        return self.session.connection().execute(self.count_query, self.args).scalar()
-
 
     @staticmethod
     def decode_slice(slc):
@@ -81,24 +75,28 @@ class ConnectionQuery(ABC):
                 return list(self[item:item + 1])[0]
 
     def __iter__(self):
-        return iter(self.session.connection().execute(self.exec_query, self.args).fetchall())
+        result = self.execute()
+        return iter(result)
 
-    @property
     @abstractmethod
-    def count_query(self):
+    def count(self):
         pass
 
-    @property
     @abstractmethod
-    def exec_query(self):
+    def execute(self):
         pass
 
 
 
 class SQLConnectionQuery(ConnectionQuery):
-    def __init__(self, session, sql, **args):
-        super().__init__(session, **args)
+    def __init__(self, orm_session, sql, **kwargs):
+        super().__init__(**kwargs)
+        self.session = orm_session
         self.sql = sql
+        self.params = kwargs
+
+    def count(self):
+        return self.session.connection().execute(self.count_query, self.args).scalar()
 
     @property
     def count_query(self):
@@ -106,8 +104,8 @@ class SQLConnectionQuery(ConnectionQuery):
             text(f"({self.sql}) as ____")
         )
 
-    @property
-    def exec_query(self):
+
+    def execute(self):
         base_query = self.sql
         if self.limit:
             base_query = f"{base_query} LIMIT {self.limit}"
@@ -115,9 +113,11 @@ class SQLConnectionQuery(ConnectionQuery):
         if self.offset:
             base_query = f"{base_query} OFFSET {self.offset}"
 
-        return text(base_query)
-
-
+        # this class assumes that session will be closed in the calling scope.
+        # connection will be soft-closed per semantics of execute method.
+        result_proxy = self.session.connection().execute(text(base_query), self.params)
+        result = result_proxy.fetchall()
+        return result
 
 
 class QueryConnectionField(ConnectionField):
