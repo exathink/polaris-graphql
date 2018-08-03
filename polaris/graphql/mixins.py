@@ -47,7 +47,8 @@ class InterfaceResolverMixin(KeyIdResolverMixin):
             interface_resolvers=cls.InterfaceResolvers,
             resolver_context=parent_relationship,
             params=params,
-            output_type=cls
+            output_type=cls,
+            **kwargs
         )
 
     def get_node_query_params(self, **kwargs):
