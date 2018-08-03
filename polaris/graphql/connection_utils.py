@@ -10,15 +10,14 @@
 from abc import abstractmethod, ABC
 from functools import partial
 
-from sqlalchemy.sql import select, func, text
-
 import graphene
 from graphene.relay import Connection, ConnectionField
 from graphene.relay.connection import PageInfo
 from graphql_relay.connection.arrayconnection import connection_from_list_slice, connection_from_list
+from sqlalchemy.sql import select, func, text
 
-
-
+from polaris.common import db
+from .join_utils import cte_join, collect_join_resolvers
 
 
 class ConnectionQuery(ABC):
@@ -89,7 +88,6 @@ class ConnectionQuery(ABC):
         pass
 
 
-
 class SQLConnectionQuery(ConnectionQuery):
     def __init__(self, orm_session, sql, **kwargs):
         super().__init__(**kwargs)
@@ -98,14 +96,13 @@ class SQLConnectionQuery(ConnectionQuery):
         self.params = kwargs
 
     def count(self):
-        return self.session.connection().execute(self.count_query, self.args).scalar()
+        return self.session.connection().execute(self.count_query, self.params).scalar()
 
     @property
     def count_query(self):
         return select([func.count()]).select_from(
             text(f"({self.sql}) as ____")
         )
-
 
     def execute(self):
         base_query = self.sql
@@ -126,12 +123,11 @@ class QueryConnectionField(ConnectionField):
 
     def __init__(self, type, *args, **kwargs):
         kwargs.setdefault('countOnly', graphene.Boolean())
-        super().__init__(type, *args,**kwargs)
+        super().__init__(type, *args, **kwargs)
 
     @classmethod
     def is_paging(cls, args):
         return 'first' in args or 'before' in args or 'after' in args
-
 
     @classmethod
     def connection_resolver(cls, resolver, connection_type, root, info, **args):
@@ -179,15 +175,50 @@ class QueryConnectionField(ConnectionField):
                 connection.iterable = iterable
                 connection.count = count
         else:
-            connection =  super().resolve_connection(connection_type, args, resolved)
+            connection = super().resolve_connection(connection_type, args, resolved)
 
         return connection
 
     def get_resolver(self, parent_resolver):
         return partial(self.connection_resolver, parent_resolver, self.type)
 
+
 class CountableConnection(Connection):
     class Meta:
         abstract = True
 
     count = graphene.Int()
+
+
+def count(selectable):
+    alias = selectable.alias()
+    return select([func.count(alias.c.key)]).select_from(alias)
+
+
+class NodeResolverQuery(ConnectionQuery):
+
+    def __init__(self, named_node_resolver, interface_resolvers, resolver_context, params, output_type=None, **kwargs):
+        super().__init__(**kwargs)
+        self.query = cte_join(named_node_resolver, collect_join_resolvers(interface_resolvers, **kwargs),
+                              resolver_context, **kwargs)
+        self.output_type = output_type
+        self.params = params
+
+    def count(self):
+        with db.create_session() as session:
+            return session.execute(count(self.query), self.params).scalar()
+
+    def execute(self):
+        base_query = self.query
+        if self.limit:
+            base_query = base_query.limit(self.limit)
+
+        if self.offset:
+            base_query = base_query.offset(self.offset)
+
+        with db.create_session() as session:
+            result = session.execute(base_query, self.params).fetchall()
+            return [
+                self.output_type(**{key: value for key, value in row.items()})
+                for row in result
+            ] if self.output_type else result
