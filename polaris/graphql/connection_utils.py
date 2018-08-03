@@ -11,7 +11,9 @@ from abc import abstractmethod, ABC
 from functools import partial
 
 from sqlalchemy.sql import select, func, text
-from graphene.relay import ConnectionField
+
+import graphene
+from graphene.relay import Connection, ConnectionField
 from graphene.relay.connection import PageInfo
 from graphql_relay.connection.arrayconnection import connection_from_list_slice, connection_from_list
 
@@ -122,6 +124,10 @@ class SQLConnectionQuery(ConnectionQuery):
 
 class QueryConnectionField(ConnectionField):
 
+    def __init__(self, type, *args, **kwargs):
+        kwargs.setdefault('countOnly', graphene.Boolean())
+        super().__init__(type, *args,**kwargs)
+
     @classmethod
     def is_paging(cls, args):
         return 'first' in args or 'before' in args or 'after' in args
@@ -131,7 +137,19 @@ class QueryConnectionField(ConnectionField):
     def connection_resolver(cls, resolver, connection_type, root, info, **args):
         resolved = resolver(root, info, **args)
         if isinstance(resolved, ConnectionQuery):
-            if cls.is_paging(args):
+            if args.get('countOnly') is not None:
+                count = resolved.count()
+                iterable = []
+                connection = connection_from_list(
+                    iterable,
+                    args,
+                    connection_type=connection_type,
+                    pageinfo_type=PageInfo,
+                    edge_type=connection_type.Edge,
+                )
+                connection.iterable = iterable
+                connection.count = count
+            elif cls.is_paging(args):
                 # We should pay the cost of doing the count
                 # only when we are actually paging.
                 count = resolved.count()
@@ -146,7 +164,7 @@ class QueryConnectionField(ConnectionField):
                     edge_type=connection_type.Edge,
                 )
                 connection.iterable = resolved
-                connection.length = count
+                connection.count = count
             else:
                 # if not, just get the whole list of query results
                 iterable = list(resolved)
@@ -159,7 +177,7 @@ class QueryConnectionField(ConnectionField):
                     edge_type=connection_type.Edge,
                 )
                 connection.iterable = iterable
-                connection.length = count
+                connection.count = count
         else:
             connection =  super().resolve_connection(connection_type, args, resolved)
 
@@ -167,3 +185,9 @@ class QueryConnectionField(ConnectionField):
 
     def get_resolver(self, parent_resolver):
         return partial(self.connection_resolver, parent_resolver, self.type)
+
+class CountableConnection(Connection):
+    class Meta:
+        abstract = True
+
+    count = graphene.Int()
