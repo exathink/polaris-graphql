@@ -8,6 +8,7 @@
 
 # Author: Krishna Kumar
 
+
 class KeyIdResolverMixin:
     def __init__(self, key, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -16,7 +17,7 @@ class KeyIdResolverMixin:
     def resolve_id(self, info, **kwargs):
         return self.key
 
-    def get_node_query_params(self, **kwargs):
+    def get_instance_query_params(self, **kwargs):
         return dict(key=self.key)
 
 
@@ -28,3 +29,5 @@ class NamedNodeResolverMixin(KeyIdResolverMixin):
 
     def resolve_name(self, info, **kwargs):
         return self.name
+
+

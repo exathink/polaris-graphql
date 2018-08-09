@@ -8,18 +8,10 @@
 
 # Author: Krishna Kumar
 
-import inspect
-
 from sqlalchemy import text, select, join
 
 from polaris.common import db
-
-
-def properties(clazz):
-    return [
-        attr[0] for attr in inspect.getmembers(clazz, lambda a: not(inspect.isroutine(a)))
-             if not attr[0].startswith('_') and not attr[0].endswith('_')
-    ]
+from polaris.graphql.utils import properties
 
 
 def resolve_local_join(result_rows, join_field, output_type):

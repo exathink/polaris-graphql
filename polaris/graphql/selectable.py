@@ -103,7 +103,7 @@ class Selectable(ObjectType):
         )
 
     @classmethod
-    def resolve_interface(cls, interface, params, **kwargs):
+    def resolve_interface_for_instance(cls, interface, params, **kwargs):
         return resolve_instance(
             cls._meta.named_node_resolver,
             cls._meta.interface_resolvers,
