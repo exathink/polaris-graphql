@@ -126,7 +126,7 @@ def resolve_join(named_node_resolver, interface_resolvers, resolver_context, par
 def collect_join_resolvers(interface_resolvers, **kwargs):
     interfaces = [interface
                    for interface in set(kwargs.get('interfaces', [])) | set(kwargs.get('interface', []))]
-    return [interface_resolvers.get(interface) for interface in interfaces]
+    return [interface_resolvers.get(interface) for interface in interfaces if interface_resolvers.get(interface) is not None]
 
 
 def resolve_collection(named_node_resolver, interface_resolvers, resolver_context, params, **kwargs):

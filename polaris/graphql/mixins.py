@@ -8,9 +8,6 @@
 
 # Author: Krishna Kumar
 
-from .join_utils import resolve_instance
-from .connection_utils import NodeResolverQuery
-
 class KeyIdResolverMixin:
     def __init__(self, key, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -19,42 +16,11 @@ class KeyIdResolverMixin:
     def resolve_id(self, info, **kwargs):
         return self.key
 
-
-
-class InterfaceResolverMixin(KeyIdResolverMixin):
-    NamedNodeResolver=None
-    InterfaceResolvers = None
-
-    @classmethod
-    def get_node(cls, info, id):
-        return cls.resolve_instance(id)
-
-    @classmethod
-    def resolve_instance(cls, key, **kwargs):
-        return resolve_instance(
-            cls.NamedNodeResolver,
-            cls.InterfaceResolvers,
-            resolver_context=cls.__name__,
-            params=dict(key=key),
-            output_type=cls,
-            **kwargs
-        )
-
-    @classmethod
-    def resolve_connection(cls, parent_relationship, named_node_resolver, params, **kwargs):
-        return NodeResolverQuery(
-            named_node_resolver=named_node_resolver,
-            interface_resolvers=cls.InterfaceResolvers,
-            resolver_context=parent_relationship,
-            params=params,
-            output_type=cls,
-            **kwargs
-        )
-
     def get_node_query_params(self, **kwargs):
         return dict(key=self.key)
 
-class NamedNodeResolverMixin(InterfaceResolverMixin):
+
+class NamedNodeResolverMixin(KeyIdResolverMixin):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.name = kwargs.get('name', None)
