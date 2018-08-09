@@ -79,7 +79,7 @@ class Selectable(ObjectType):
             cls._meta.connection_class(),
             interfaces=graphene.Argument(
                 graphene.List(cls._meta.interface_enum),
-                required=True,
+                required=False,
             ),
             **kwargs
         )
