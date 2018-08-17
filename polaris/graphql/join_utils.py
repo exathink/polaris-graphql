@@ -99,9 +99,12 @@ def cte_join(named_nodes_resolver, subquery_resolvers, resolver_context, join_fi
     joined = named_node_alias
     for _, selectable in subqueries[1:]:
         joined = joined.outerjoin(selectable, named_node_alias.c[join_field] == selectable.c[join_field])
-
-    query = select(output_columns).select_from(joined)
     # Select the output columns from the resulting join
+    query = select(output_columns).select_from(joined)
+
+    if 'apply_distinct' in kwargs:
+        query = query.distinct()
+
     return query
 
 
