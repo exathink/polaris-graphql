@@ -12,7 +12,7 @@ from sqlalchemy import text, select, join
 
 from polaris.common import db
 from polaris.graphql.utils import properties
-
+from .utils import is_paging
 
 def resolve_local_join(result_rows, join_field, output_type):
     if len(result_rows) == 1:
@@ -81,10 +81,14 @@ def cte_join(named_nodes_resolver, subquery_resolvers, resolver_context, join_fi
     named_nodes_interface, named_nodes_selectable = (named_nodes_resolver.interface, named_nodes_resolver.selectable)
     named_nodes_cte =  named_nodes_selectable(**kwargs).cte(resolver_context)
 
-    subqueries = [(named_nodes_interface, named_nodes_cte.alias(named_nodes_interface.__name__))] + [
-        (resolver.interface, resolver.selectable(named_nodes_cte, **kwargs).alias(resolver.interface.__name__))
-        for resolver in subquery_resolvers
-    ]
+    subqueries = [(named_nodes_interface, named_nodes_cte.alias(named_nodes_interface.__name__))]
+
+    sort_order = []
+    for resolver in subquery_resolvers:
+        selectable = resolver.selectable(named_nodes_cte, **kwargs)
+        subqueries.append((resolver.interface, selectable.alias(resolver.interface.__name__)))
+        if is_paging(kwargs) and resolver.sort_order is not None:
+            sort_order.extend(resolver.sort_order(selectable, **kwargs))
 
     seen_columns = set()
     output_columns = []
@@ -93,7 +97,6 @@ def cte_join(named_nodes_resolver, subquery_resolvers, resolver_context, join_fi
             if field not in seen_columns:
                 seen_columns.add(field)
                 output_columns.append(selectable.c[field])
-
 
     _, named_node_alias = subqueries[0]
     joined = named_node_alias
@@ -104,6 +107,9 @@ def cte_join(named_nodes_resolver, subquery_resolvers, resolver_context, join_fi
 
     if 'apply_distinct' in kwargs:
         query = query.distinct()
+
+    if is_paging(kwargs) and len(sort_order) > 0:
+            query = query.order_by(*sort_order)
 
     return query
 

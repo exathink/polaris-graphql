@@ -23,3 +23,6 @@ def properties(clazz):
         attr[0] for attr in inspect.getmembers(clazz, lambda a: not(inspect.isroutine(a)))
              if not attr[0].startswith('_') and not attr[0].endswith('_')
     ]
+
+def is_paging(args):
+    return 'first' in args or 'before' in args or 'after' in args

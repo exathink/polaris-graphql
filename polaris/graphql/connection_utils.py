@@ -18,6 +18,7 @@ from sqlalchemy.sql import select, func, text
 
 from polaris.common import db
 from .join_utils import cte_join, collect_join_resolvers
+from .utils import is_paging
 
 
 class ConnectionQuery(ABC):
@@ -126,10 +127,6 @@ class QueryConnectionField(ConnectionField):
         super().__init__(type, *args, **kwargs)
 
     @classmethod
-    def is_paging(cls, args):
-        return 'first' in args or 'before' in args or 'after' in args
-
-    @classmethod
     def connection_resolver(cls, resolver, connection_type, root, info, **args):
         resolved = resolver(root, info, **args)
         if isinstance(resolved, ConnectionQuery):
@@ -145,7 +142,7 @@ class QueryConnectionField(ConnectionField):
                 )
                 connection.iterable = iterable
                 connection.count = count
-            elif cls.is_paging(args):
+            elif is_paging(args):
                 # We should pay the cost of doing the count
                 # only when we are actually paging.
                 count = resolved.count()
