@@ -87,7 +87,7 @@ def cte_join(named_nodes_resolver, subquery_resolvers, resolver_context, join_fi
     for resolver in subquery_resolvers:
         selectable = resolver.selectable(named_nodes_cte, **kwargs)
         subqueries.append((resolver.interface, selectable.alias(resolver.interface.__name__)))
-        if is_paging(kwargs) and resolver.sort_order is not None:
+        if is_paging(kwargs) and getattr(resolver, 'sort_order', None):
             sort_order.extend(resolver.sort_order(selectable, **kwargs))
 
     seen_columns = set()
