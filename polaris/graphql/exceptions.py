@@ -18,3 +18,6 @@ class AccessDeniedException(GQLException):
 
 class InvalidSummarizerException(GQLException):
     pass
+
+class UnableToResolveException(GQLException):
+    pass
