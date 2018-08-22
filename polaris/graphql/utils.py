@@ -9,6 +9,7 @@
 # Author: Krishna Kumar
 import inspect
 from collections import namedtuple
+import re
 
 def init_tuple(tuple, **kwargs):
     if all([field in kwargs for field in tuple._fields]):
@@ -26,3 +27,10 @@ def properties(clazz):
 
 def is_paging(args):
     return 'first' in args or 'before' in args or 'after' in args
+
+def snake_case(name):
+    s1 = re.sub('(.)([A-Z][a-z]+)', r'\1_\2', name)
+    return re.sub('([a-z0-9])([A-Z])', r'\1_\2', s1).lower()
+
+def days_between(start_date, end_date):
+    return abs((start_date - end_date).days)

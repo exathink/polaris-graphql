@@ -15,3 +15,6 @@ class GQLException(Exception):
 
 class AccessDeniedException(GQLException):
     pass
+
+class InvalidSummarizerException(GQLException):
+    pass

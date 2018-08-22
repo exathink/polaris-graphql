@@ -9,7 +9,7 @@
 # Author: Krishna Kumar
 
 from .join_utils import resolve_instance
-from .connection_utils import NodeResolverQuery, QueryConnectionField, CountableConnection
+from .connection_utils import ConnectionResolverQuery, QueryConnectionField, CountableConnection
 
 import graphene
 from graphene.types.objecttype import ObjectType, ObjectTypeOptions
@@ -75,8 +75,20 @@ class Selectable(ObjectType):
     def ConnectionField(cls, **kwargs):
         assert cls._meta.connection_class, f"Class {cls.__name__} must specify Meta attribute connection_class" \
                                            f"in order to use default ConnectionField method from Selectable"
+
+        connection_class = cls._meta.connection_class()
+
+        # all available summaries on the connection class are exposed as
+        # keyword arguments on the connection query field
+        # so that the client can select which ones to apply
+        if connection_class.meta('summaries'):
+            kwargs['summaries'] = graphene.Argument(
+                graphene.List(connection_class.meta('summaries_enum')),
+                required=False
+            )
+
         return QueryConnectionField(
-            cls._meta.connection_class(),
+            connection_class,
             interfaces=graphene.Argument(
                 graphene.List(cls._meta.interface_enum),
                 required=False,
@@ -115,7 +127,7 @@ class Selectable(ObjectType):
 
     @classmethod
     def resolve_connection(cls, parent_relationship, named_node_resolver, params, **kwargs):
-        return NodeResolverQuery(
+        return ConnectionResolverQuery(
             named_node_resolver=named_node_resolver,
             interface_resolvers=cls._meta.interface_resolvers,
             resolver_context=parent_relationship,
