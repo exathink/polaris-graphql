@@ -144,7 +144,7 @@ class QueryConnectionField(ConnectionField):
             graphene.Argument(
                 ConnectionSummarize,
                 required=False,
-                default_value=ConnectionSummarize.default
+                default_value=ConnectionSummarize.default.value
             )
         )
         super().__init__(type, *args, **kwargs)
@@ -351,13 +351,16 @@ class CountableConnection(Connection):
         _interfaces = interfaces
         if len(summaries) > 0:
             _meta.summaries = summaries
-            _interfaces = (*_interfaces, *summaries)
+
 
             _meta.summaries_enum = graphene.Enum(
                 f'{cls.__name__}ConnectionSummaries', [
-                    (interface.__name__, interface.__name__)
-                    for interface in summaries
+                    (summary.__name__, summary.__name__)
+                    for summary in summaries
                 ])
+
+            for summary in summaries:
+                setattr(cls, snake_case(summary.__name__), graphene.Field(summary))
 
 
         # Base connection class does not respect passed in _meta object
