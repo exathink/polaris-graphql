@@ -21,6 +21,7 @@ from sqlalchemy.sql import select, func, text
 from polaris.common import db
 from .join_utils import cte_join, collect_join_resolvers
 from .utils import is_paging, snake_case
+from .interfaces import ConnectionSummarize
 
 from graphene.types.objecttype import ObjectTypeOptions
 
@@ -125,11 +126,27 @@ class SQLConnectionQuery(ConnectionQuery):
 
 class QueryConnectionField(ConnectionField):
 
+
+
     DB_SUMMARIZATION_THRESHOLD = 1000
 
     def __init__(self, type, *args, **kwargs):
-        kwargs.setdefault('summariesOnly', graphene.Argument(graphene.Boolean, required=False, default_value=False))
-        kwargs.setdefault('summarize_db', graphene.Argument(graphene.Boolean, required=False, default_value=False))
+        kwargs.setdefault(
+            'summariesOnly',
+            graphene.Argument(
+                graphene.Boolean,
+                required=False,
+                default_value=False
+            )
+        )
+        kwargs.setdefault(
+            'summarize',
+            graphene.Argument(
+                ConnectionSummarize,
+                required=False,
+                default_value=ConnectionSummarize.default
+            )
+        )
         super().__init__(type, *args, **kwargs)
 
 
@@ -189,10 +206,17 @@ class QueryConnectionField(ConnectionField):
             db_summary_result = dict()
 
             db_summarizers, result_set_summarizers = cls.get_summarizers(target_summaries)
-            summarize_db = (kwargs.get('summarize_db') or total_data_size > cls.DB_SUMMARIZATION_THRESHOLD) and len(db_summarizers) > 0
-            if result_set is None and summarize_db:
-                db_summary_result, result_set = cls.compute_db_summaries(target_summaries, db_summarizers, connection_resolver_query, return_result_set)
+            summarization_strategy = kwargs.get('summarize')
 
+            if summarization_strategy != ConnectionSummarize.server:
+                # Apply db summarization in those cases where we can do so.
+                if len(db_summarizers) > 0 and (
+                        summarization_strategy == ConnectionSummarize.db # Client has requested db summarization regardless of size
+                        or total_data_size > cls.DB_SUMMARIZATION_THRESHOLD # Default: summarize in db only for large data sets
+                ):
+                    db_summary_result, result_set = cls.compute_db_summaries(target_summaries, db_summarizers, connection_resolver_query, return_result_set)
+
+            # server side summarization applied for the anything that is not covered above.
             result_set_summary_result = dict()
             if len(db_summary_result) < len(target_summaries):
                 for key in db_summary_result:
