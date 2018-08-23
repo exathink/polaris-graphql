@@ -11,6 +11,8 @@ import inspect
 from collections import namedtuple
 import re
 from graphene.types.base import BaseType as GraphqlType
+from sqlalchemy import case
+
 
 def init_tuple(tuple, **kwargs):
     if all([field in kwargs for field in tuple._fields]):
@@ -34,3 +36,13 @@ def snake_case(name):
 
 def days_between(start_date, end_date):
     return abs((start_date - end_date).days)
+
+
+# SqlAlchmy expression utils
+def nulls_to_zero(column_expr):
+    return case(
+        [
+            (column_expr == None, 0)
+        ],
+        else_= column_expr
+    )
