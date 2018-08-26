@@ -25,6 +25,7 @@ from .interfaces import ConnectionSummarize
 
 from graphene.types.objecttype import ObjectTypeOptions
 
+
 class ConnectionQuery(ABC):
     def __init__(self, **kwargs):
         self.limit = None
@@ -125,9 +126,6 @@ class SQLConnectionQuery(ConnectionQuery):
 
 
 class QueryConnectionField(ConnectionField):
-
-
-
     DB_SUMMARIZATION_THRESHOLD = 1000
 
     def __init__(self, type, *args, **kwargs):
@@ -148,7 +146,6 @@ class QueryConnectionField(ConnectionField):
             )
         )
         super().__init__(type, *args, **kwargs)
-
 
     @classmethod
     def get_summarizers(cls, summary_interfaces):
@@ -180,7 +177,6 @@ class QueryConnectionField(ConnectionField):
 
         return summary_results, result_set
 
-
     @classmethod
     def compute_result_set_summaries(cls, target_summaries, result_set_summarizers, result_set, summary_result=None):
         if summary_result is None:
@@ -192,7 +188,6 @@ class QueryConnectionField(ConnectionField):
                 summary_result[summary] = summarizer.summarize_result_set(result_set)
 
         return summary_result
-
 
     @classmethod
     def resolve_summaries(cls, connection_resolver_query, return_result_set=True, **kwargs):
@@ -211,10 +206,13 @@ class QueryConnectionField(ConnectionField):
             if summarization_strategy != ConnectionSummarize.server:
                 # Apply db summarization in those cases where we can do so.
                 if len(db_summarizers) > 0 and (
-                        summarization_strategy == ConnectionSummarize.db # Client has requested db summarization regardless of size
-                        or total_data_size > cls.DB_SUMMARIZATION_THRESHOLD # Default: summarize in db only for large data sets
+                        summarization_strategy == ConnectionSummarize.db  # Client has requested db summarization regardless of size
+                        or total_data_size > cls.DB_SUMMARIZATION_THRESHOLD
+                # Default: summarize in db only for large data sets
                 ):
-                    db_summary_result, result_set = cls.compute_db_summaries(target_summaries, db_summarizers, connection_resolver_query, return_result_set)
+                    db_summary_result, result_set = cls.compute_db_summaries(target_summaries, db_summarizers,
+                                                                             connection_resolver_query,
+                                                                             return_result_set)
 
             # server side summarization applied for the anything that is not covered above.
             result_set_summary_result = dict()
@@ -227,20 +225,19 @@ class QueryConnectionField(ConnectionField):
                     if result_set is None:
                         result_set = connection_resolver_query.execute(to_object=False)
 
-                    result_set_summary_result = cls.compute_result_set_summaries(target_summaries, result_set_summarizers, result_set, summary_result=db_summary_result)
+                    result_set_summary_result = cls.compute_result_set_summaries(target_summaries,
+                                                                                 result_set_summarizers, result_set,
+                                                                                 summary_result=db_summary_result)
 
             summary_result = {**db_summary_result, **result_set_summary_result}
 
-        return summary_result, total_data_size, connection_resolver_query.to_object(result_set) if return_result_set else None
-
-
+        return summary_result, total_data_size, connection_resolver_query.to_object(
+            result_set) if return_result_set else None
 
     @classmethod
     def update_connection_properties(cls, connection, summary_results):
-        for interface, summary_result in summary_results.items():
-            connection.update_resolved(interface, summary_result)
-
-
+        for summary, summary_result in summary_results.items():
+            connection.resolve_summary(summary, summary_result)
 
     @classmethod
     def connection_resolver(cls, resolver, connection_type, root, info, **kwargs):
@@ -271,7 +268,7 @@ class QueryConnectionField(ConnectionField):
 
 
             elif is_paging(kwargs):
-                summary_result, total_data_size,  _ = cls.resolve_summaries(
+                summary_result, total_data_size, _ = cls.resolve_summaries(
                     connection_resolver_query,
                     return_result_set=False,
                     **kwargs
@@ -352,16 +349,18 @@ class CountableConnection(Connection):
         if len(summaries) > 0:
             _meta.summaries = summaries
 
-
+            summary_object_types = [
+                (summary, summary.of_type if isinstance(summary, graphene.List) else summary)
+                for summary in summaries
+            ]
             _meta.summaries_enum = graphene.Enum(
                 f'{cls.__name__}ConnectionSummaries', [
-                    (summary.__name__, summary.__name__)
-                    for summary in summaries
+                    (summary_object_type.__name__, summary_object_type.__name__)
+                    for _, summary_object_type in summary_object_types
                 ])
 
-            for summary in summaries:
-                setattr(cls, snake_case(summary.__name__), graphene.Field(summary))
-
+            for summary, summary_object_type in summary_object_types:
+                setattr(cls, snake_case(summary_object_type.__name__), graphene.Field(summary))
 
         # Base connection class does not respect passed in _meta object
         # and freezes it after initialization, so we need to hack our way
@@ -376,9 +375,10 @@ class CountableConnection(Connection):
     class Meta:
         abstract = True
 
+    def resolve_summary(self, summary, summary_result):
+        setattr(self, snake_case(summary), summary_result)
+
     count = graphene.Int()
-
-
 
 
 def count(selectable):
@@ -387,8 +387,6 @@ def count(selectable):
 
 
 class ConnectionResolverQuery(ConnectionQuery):
-
-
 
     def __init__(self, named_node_resolver, interface_resolvers, resolver_context, params, output_type=None, **kwargs):
         super().__init__(**kwargs)
@@ -443,7 +441,8 @@ class ConnectionResolverQuery(ConnectionQuery):
 
         with db.create_session(join_session) as session:
             result = session.execute(base_query, self.params).fetchall()
-            return self.to_object(result ) if self.output_type and to_object else result
+            return self.to_object(result) if self.output_type and to_object else result
+
 
 class ConnectionSummarizerOptions(ObjectTypeOptions):
     interface = None
@@ -451,12 +450,10 @@ class ConnectionSummarizerOptions(ObjectTypeOptions):
 
 
 class ConnectionSummarizer(SubclassWithMeta):
-
     registry = dict()
 
     @classmethod
-    def __init_subclass_with_meta__(cls, interface=None, connection_property=None,  **meta_options):
-
+    def __init_subclass_with_meta__(cls, interface=None, connection_property=None, **meta_options):
         _meta = ConnectionSummarizerOptions(cls)
         _meta.interface = interface
         if interface:
@@ -475,14 +472,6 @@ class ConnectionSummarizer(SubclassWithMeta):
     def get_summarizer(cls, interface_name):
         return cls.registry.get(interface_name)
 
-
-
-
     @classmethod
     def meta(cls, attr):
         return getattr(cls._meta, attr, None)
-
-
-
-
-
