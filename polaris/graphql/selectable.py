@@ -18,6 +18,7 @@ from graphene.types.objecttype import ObjectType, ObjectTypeOptions
 class SelectableObjectOptions(ObjectTypeOptions):
     named_node_resolver = None
     interface_resolvers = None
+    connection_node_resolvers = None
     interface_enum = None
     connection_class = None
 
@@ -31,6 +32,7 @@ class Selectable(ObjectType):
                                     interfaces = None,
                                     named_node_resolver=None,
                                     interface_resolvers=None,
+                                    connection_node_resolvers=None,
                                     connection_class = None,
                                     interface_enum=None,
                                     **options):
@@ -42,6 +44,8 @@ class Selectable(ObjectType):
 
         assert interface_resolvers, "Property interface_resolvers for class Meta is required"
         _meta.interface_resolvers = interface_resolvers
+
+        _meta.connection_node_resolvers = connection_node_resolvers
 
         if interface_enum is None:
             interface_enum = graphene.Enum(
@@ -155,8 +159,15 @@ class Selectable(ObjectType):
     def named_node_resolver(cls):
         return cls._meta.named_node_resolver
 
-class View(graphene.ObjectType):
-
     @classmethod
-    def name(cls):
-        return type(cls).__name__
+    def connection_node_resolvers(cls):
+        return cls._meta.connection_node_resolvers
+
+
+class ConnectionResolverMixin:
+
+    def get_connection_resolver_context(self, connection_name):
+        return f'{type(self).__name__.lower()}_{connection_name}'
+
+    def get_connection_node_resolver(self, connection):
+        return self.connection_node_resolvers().get(connection)
