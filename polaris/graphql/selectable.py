@@ -72,7 +72,7 @@ class Selectable(ObjectType):
         )
 
     @classmethod
-    def ConnectionField(cls, **kwargs):
+    def ConnectionField(cls, named_node_resolver=None,  **kwargs):
         assert cls._meta.connection_class, f"Class {cls.__name__} must specify Meta attribute connection_class" \
                                            f"in order to use default ConnectionField method from Selectable"
 
@@ -86,6 +86,16 @@ class Selectable(ObjectType):
                 graphene.List(connection_class.meta('summaries_enum')),
                 required=False
             )
+
+        if named_node_resolver:
+            views = getattr(named_node_resolver, 'views', None)
+            if views:
+                kwargs['view'] = graphene.Argument(
+                    graphene.Enum(f'{type(named_node_resolver).__name__}_viewsEnum', [
+                        (view, view) for view in views
+                    ]),
+                    required=False
+                )
 
         return QueryConnectionField(
             connection_class,
@@ -144,3 +154,9 @@ class Selectable(ObjectType):
     @classmethod
     def named_node_resolver(cls):
         return cls._meta.named_node_resolver
+
+class View(graphene.ObjectType):
+
+    @classmethod
+    def name(cls):
+        return type(cls).__name__

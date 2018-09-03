@@ -76,32 +76,61 @@ def resolve_remote_join(queries, output_type, join_field='id', params=None):
         return [output_type(**{key:value for key, value in row.items()}) for row in result]
 
 
+def resolve_named_node_resolver_for_view(named_node_resolver, **kwargs):
+    if hasattr(named_node_resolver, 'views'):
+        view = kwargs.get('view', 'Default')
+        return named_node_resolver.named_node_resolvers.get(view)
+    else:
+        return named_node_resolver
+
+
+def get_named_node_resolver_interface_fields(named_node_resolver):
+    if hasattr(named_node_resolver, 'interface'):
+        return properties(named_node_resolver.interface)
+    elif hasattr(named_node_resolver, 'interfaces'):
+        fields = []
+        for interface in named_node_resolver.interfaces:
+            fields.extend(properties(interface))
+        return fields
+    else:
+        return []
+
+
 def cte_join(named_nodes_resolver, subquery_resolvers, resolver_context, join_field='id', **kwargs):
 
-    named_nodes_interface, named_nodes_selectable = (named_nodes_resolver.interface, named_nodes_resolver.selectable)
-    named_nodes_cte =  named_nodes_selectable(**kwargs).cte(resolver_context)
+    named_nodes_selectable = named_nodes_resolver.selectable
+    named_nodes_cte = named_nodes_selectable(**kwargs).cte(resolver_context)
 
-    subqueries = [(named_nodes_interface, named_nodes_cte.alias(named_nodes_interface.__name__))]
-
+    subqueries = []
     sort_order = []
+
+    if hasattr(named_nodes_resolver, 'sort_order'):
+        sort_order.extend(named_nodes_resolver.sort_order(named_nodes_cte, **kwargs))
+
     for resolver in subquery_resolvers:
-        selectable = resolver.selectable(named_nodes_cte, **kwargs)
-        subqueries.append((resolver.interface, selectable.alias(resolver.interface.__name__)))
+        selectable = resolver.selectable(named_nodes_cte, **kwargs).alias(resolver.interface.__name__)
+        subqueries.append((resolver.interface, selectable))
         if is_paging(kwargs) and getattr(resolver, 'sort_order', None):
             sort_order.extend(resolver.sort_order(selectable, **kwargs))
 
     seen_columns = set()
     output_columns = []
+
+    # Add all the columns from the named node CTE
+    for col in get_named_node_resolver_interface_fields(named_nodes_resolver):
+        seen_columns.add(col)
+        output_columns.append(named_nodes_cte.c[col])
+
+    # Add the columns from the subqueries based on the interfaces they expose
     for interface, selectable in subqueries:
         for field in properties(interface):
             if field not in seen_columns:
                 seen_columns.add(field)
                 output_columns.append(selectable.c[field])
 
-    _, named_node_alias = subqueries[0]
-    joined = named_node_alias
-    for _, selectable in subqueries[1:]:
-        joined = joined.outerjoin(selectable, named_node_alias.c[join_field] == selectable.c[join_field])
+    joined = named_nodes_cte
+    for _, selectable in subqueries:
+        joined = joined.outerjoin(selectable, named_nodes_cte.c[join_field] == selectable.c[join_field])
     # Select the output columns from the resulting join
     query = select(output_columns).select_from(joined)
 

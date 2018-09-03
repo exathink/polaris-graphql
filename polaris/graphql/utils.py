@@ -15,9 +15,8 @@ from graphene.types.base import BaseType as GraphqlType
 from sqlalchemy import case
 
 
-def init_tuple(tuple, **kwargs):
-    if all([field in kwargs for field in tuple._fields]):
-        return tuple(**{field:kwargs.get(field) for field in tuple._fields})
+def init_tuple(tuple_type, **kwargs):
+    return tuple_type(**{field: kwargs.get(field) for field in tuple_type._fields})
 
 
 def create_tuple(clazz):
@@ -29,7 +28,7 @@ def properties(clazz):
     ]
 
 def is_paging(args):
-    return 'first' in args or 'before' in args or 'after' in args
+    return 'first' in args or 'before' in args or 'after' in args or 'last' in args
 
 def snake_case(name):
     s1 = re.sub('(.)([A-Z][a-z]+)', r'\1_\2', name)
