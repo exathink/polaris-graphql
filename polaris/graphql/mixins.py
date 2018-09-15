@@ -17,8 +17,12 @@ class KeyIdResolverMixin:
     def resolve_id(self, info, **kwargs):
         return self.key
 
+    @classmethod
+    def key_to_instance_resolver_params(cls, key):
+        return dict(key=key)
+
     def get_instance_query_params(self, **kwargs):
-        return dict(key=self.key)
+        return self.key_to_instance_resolver_params(self.key)
 
 
 class NamedNodeResolverMixin(KeyIdResolverMixin):

@@ -10,6 +10,7 @@
 
 from .join_utils import resolve_instance
 from .connection_utils import ConnectionResolverQuery, QueryConnectionField, CountableConnection
+from polaris.common import db
 
 import graphene
 from graphene.types.objecttype import ObjectType, ObjectTypeOptions
@@ -33,6 +34,7 @@ class Selectable(ObjectType):
                                     named_node_resolver=None,
                                     interface_resolvers=None,
                                     connection_node_resolvers=None,
+                                    property_resolvers=None,
                                     connection_class = None,
                                     interface_enum=None,
                                     **options):
@@ -42,10 +44,12 @@ class Selectable(ObjectType):
         assert named_node_resolver, "Property named_node_resolver for class Meta is required"
         _meta.named_node_resolver = named_node_resolver
 
-        assert interface_resolvers, "Property interface_resolvers for class Meta is required"
+        assert interface_resolvers is not None, "Property interface_resolvers for class Meta is required"
         _meta.interface_resolvers = interface_resolvers
 
         _meta.connection_node_resolvers = connection_node_resolvers
+
+        _meta.property_resolvers = property_resolvers
 
         if interface_enum is None:
             interface_enum = graphene.Enum(
@@ -116,14 +120,13 @@ class Selectable(ObjectType):
 
 
 
-
     @classmethod
     def resolve_instance(cls, key, **kwargs):
         return resolve_instance(
             cls._meta.named_node_resolver,
             cls._meta.interface_resolvers,
             resolver_context=cls.__name__,
-            params=dict(key=key),
+            params=cls.key_to_instance_resolver_params(key),
             output_type=cls,
             **kwargs
         )
@@ -171,3 +174,11 @@ class ConnectionResolverMixin:
 
     def get_connection_node_resolver(self, connection):
         return self.connection_node_resolvers().get(connection)
+
+
+class SimpleSelectableResolverMixin:
+
+    @staticmethod
+    def resolve_selectable(resolver, params, **kwargs):
+        with db.create_session() as session:
+            return session.connection.execute(resolver.selectable(**kwargs), params).fetchall()
