@@ -34,7 +34,7 @@ class Selectable(ObjectType):
                                     named_node_resolver=None,
                                     interface_resolvers=None,
                                     connection_node_resolvers=None,
-                                    property_resolvers=None,
+                                    selectable_field_resolvers=None,
                                     connection_class = None,
                                     interface_enum=None,
                                     **options):
@@ -49,7 +49,7 @@ class Selectable(ObjectType):
 
         _meta.connection_node_resolvers = connection_node_resolvers
 
-        _meta.property_resolvers = property_resolvers
+        _meta.selectable_field_resolvers = selectable_field_resolvers
 
         if interface_enum is None:
             interface_enum = graphene.Enum(
