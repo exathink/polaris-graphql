@@ -22,9 +22,10 @@ def init_tuple(tuple_type, **kwargs):
 def create_tuple(clazz):
     return namedtuple(clazz.__name__, properties(clazz))
 
+
 def properties(clazz):
     return [
-        attr[0] for attr in inspect.getmembers(clazz, lambda a: isinstance(a,GraphqlType))
+        attr[0] for attr in inspect.getmembers(clazz, lambda a: isinstance(a,GraphqlType) or isinstance(a, graphene.Field))
     ]
 
 def is_paging(args):
