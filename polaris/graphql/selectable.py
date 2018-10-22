@@ -76,6 +76,7 @@ class Selectable(ObjectType):
                 graphene.List(cls._meta.interface_enum),
                 required=False,
             ),
+            referenceDate=graphene.Argument(type=graphene.DateTime, required=False),
             **kwargs
         )
 
