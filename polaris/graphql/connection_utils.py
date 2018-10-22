@@ -145,6 +145,14 @@ class QueryConnectionField(ConnectionField):
                 default_value=ConnectionSummarize.default.value
             )
         )
+        kwargs.setdefault(
+            'referenceDate',
+            graphene.Argument(
+                graphene.DateTime,
+                required=False
+            )
+        )
+
         super().__init__(type, *args, **kwargs)
 
     @classmethod
