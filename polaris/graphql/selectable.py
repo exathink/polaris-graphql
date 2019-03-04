@@ -41,7 +41,7 @@ class Selectable(ObjectType):
 
         _meta = SelectableObjectOptions(cls)
 
-        assert named_node_resolver, "Property named_node_resolver for class Meta is required"
+        # assert named_node_resolver, "Property named_node_resolver for class Meta is required"
         _meta.named_node_resolver = named_node_resolver
 
         assert interface_resolvers is not None, "Property interface_resolvers for class Meta is required"
