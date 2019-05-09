@@ -68,10 +68,10 @@ class Selectable(ObjectType):
 
 
     @classmethod
-    def Field(cls, **kwargs):
+    def Field(cls, key_is_required=True, **kwargs):
         return graphene.Field(
             cls,
-            key=graphene.Argument(type=graphene.String, required=True),
+            key=graphene.Argument(type=graphene.String, required=key_is_required),
             interfaces=graphene.Argument(
                 graphene.List(cls._meta.interface_enum),
                 required=False,
