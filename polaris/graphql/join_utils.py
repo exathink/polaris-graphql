@@ -144,9 +144,9 @@ def cte_join(named_nodes_resolver, subquery_resolvers, resolver_context, join_fi
 
 
 def resolve_join(named_node_resolver, interface_resolvers, resolver_context, params, output_type=None, join_field='id',  **kwargs):
-    with db.create_session() as session:
+    with db.orm_session() as session:
         query = cte_join(named_node_resolver, interface_resolvers, resolver_context, join_field, **kwargs)
-        result = session.execute(query, params).fetchall()
+        result = session.connection().execute(query, params).fetchall()
         return [
             output_type(**{key:value for key, value in row.items()})
             for row in result
