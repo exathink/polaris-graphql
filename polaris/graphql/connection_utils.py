@@ -396,7 +396,7 @@ def count(selectable):
 
 class ConnectionResolverQuery(ConnectionQuery):
 
-    def __init__(self, named_node_resolver, interface_resolvers, resolver_context, params, output_type=None, **kwargs):
+    def __init__(self, named_node_resolver, interface_resolvers, resolver_context, params=None, output_type=None, **kwargs):
         super().__init__(**kwargs)
         self.resolver_context = resolver_context
         self.query = cte_join(named_node_resolver, collect_join_resolvers(interface_resolvers, **kwargs),
@@ -407,7 +407,10 @@ class ConnectionResolverQuery(ConnectionQuery):
 
     def count(self):
         with db.create_session() as session:
-            return session.execute(count(self.query), self.params).scalar()
+            if self.params:
+                return session.execute(count(self.query), self.params).scalar()
+            else:
+                return session.execute(count(self.query)).scalar()
 
     @contextmanager
     def create_temp_table(self, session):
@@ -448,7 +451,11 @@ class ConnectionResolverQuery(ConnectionQuery):
             base_query = base_query.offset(self.offset)
 
         with db.create_session(join_session) as session:
-            result = session.execute(base_query, self.params).fetchall()
+            if self.params is not None:
+                result = session.execute(base_query, self.params).fetchall()
+            else:
+                result = session.execute(base_query).fetchall()
+
             return self.to_object(result) if self.output_type and to_object else result
 
 
