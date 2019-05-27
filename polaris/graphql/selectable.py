@@ -44,7 +44,7 @@ class Selectable(ObjectType):
         # assert named_node_resolver, "Property named_node_resolver for class Meta is required"
         _meta.named_node_resolver = named_node_resolver
 
-        assert interface_resolvers is not None, "Property interface_resolvers for class Meta is required"
+        # assert interface_resolvers is not None, "Property interface_resolvers for class Meta is required"
         _meta.interface_resolvers = interface_resolvers
 
         _meta.connection_node_resolvers = connection_node_resolvers
