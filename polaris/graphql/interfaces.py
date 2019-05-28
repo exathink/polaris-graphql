@@ -12,7 +12,11 @@ import graphene
 from graphene.relay import Node
 
 
-class NamedNode(Node):
+class KeyIdNode(Node):
+    key = graphene.String(required=True, description="UUID for the entity")
+
+
+class NamedNode(KeyIdNode):
     class Meta:
         description = """
         A named node extends the Relay Node interface with a UUID key 
