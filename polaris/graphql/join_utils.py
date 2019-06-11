@@ -14,6 +14,7 @@ from polaris.common import db
 from polaris.graphql.utils import properties
 from .utils import is_paging
 
+
 def resolve_local_join(result_rows, join_field, output_type):
     if len(result_rows) == 1:
         instances = result_rows[0]
@@ -137,7 +138,7 @@ def cte_join(named_nodes_resolver, subquery_resolvers, resolver_context, join_fi
     if 'apply_distinct' in kwargs:
         query = query.distinct()
 
-    if is_paging(kwargs) and len(sort_order) > 0:
+    if len(sort_order) > 0:
             query = query.order_by(*sort_order)
 
     return query
