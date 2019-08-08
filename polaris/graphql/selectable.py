@@ -77,6 +77,7 @@ class Selectable(ObjectType):
                 required=False,
             ),
             referenceDate=graphene.Argument(type=graphene.DateTime, required=False),
+            referenceCount=graphene.Argument(type=graphene.Int, required=False),
             **kwargs
         )
 

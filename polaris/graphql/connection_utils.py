@@ -152,6 +152,13 @@ class QueryConnectionField(ConnectionField):
                 required=False
             )
         )
+        kwargs.setdefault(
+            'referenceCount',
+            graphene.Argument(
+                graphene.Int,
+                required=False
+            )
+        )
 
         super().__init__(type, *args, **kwargs)
 
