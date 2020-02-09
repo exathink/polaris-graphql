@@ -12,7 +12,7 @@ from sqlalchemy import text, select, join
 
 from polaris.common import db
 from polaris.graphql.utils import properties
-from .utils import is_paging
+from .utils import is_paging, GraphQLImplementationError
 
 
 def resolve_local_join(result_rows, join_field, output_type):
@@ -34,8 +34,7 @@ def resolve_local_join(result_rows, join_field, output_type):
     return [output_type(**instance) for instance in instances]
 
 
-
-def text_join(resolvers, resolver_context,  join_field='id', **kwargs):
+def text_join(resolvers, resolver_context, join_field='id', **kwargs):
     alias = lambda interface: interface.__name__
 
     if len(resolvers) > 0:
@@ -49,8 +48,8 @@ def text_join(resolvers, resolver_context,  join_field='id', **kwargs):
         for resolver in resolvers:
             for field in properties(resolver.interface):
                 if field not in seen_columns:
-                   seen_columns.add(field)
-                   output_columns.append(text(f'{alias(resolver.interface)}.{field}'))
+                    seen_columns.add(field)
+                    output_columns.append(text(f'{alias(resolver.interface)}.{field}'))
 
         # Convert input pairs (interface, raw-sql) into pairs (table_alias, text(raw-sql) tuples
         # these will be user to construct the final join statement
@@ -65,7 +64,8 @@ def text_join(resolvers, resolver_context,  join_field='id', **kwargs):
         # but otherwise it is possible that we return less tha the full set of entities in the space.
         root_alias, selectable = subqueries[0]
         for alias, subquery in subqueries[1:]:
-            selectable = join(selectable, subquery, onclause=text(f"{root_alias}.{join_field} = {alias}.{join_field}"), isouter=True)
+            selectable = join(selectable, subquery, onclause=text(f"{root_alias}.{join_field} = {alias}.{join_field}"),
+                              isouter=True)
 
         # Select the output columns from the resulting join
         return select(output_columns).select_from(selectable)
@@ -73,8 +73,8 @@ def text_join(resolvers, resolver_context,  join_field='id', **kwargs):
 
 def resolve_remote_join(queries, output_type, join_field='id', params=None):
     with db.create_session() as session:
-        result  = session.execute(text_join(queries, join_field), params).fetchall()
-        return [output_type(**{key:value for key, value in row.items()}) for row in result]
+        result = session.execute(text_join(queries, join_field), params).fetchall()
+        return [output_type(**{key: value for key, value in row.items()}) for row in result]
 
 
 def resolve_named_node_resolver_for_view(named_node_resolver, **kwargs):
@@ -98,18 +98,35 @@ def get_named_node_resolver_interface_fields(named_node_resolver):
 
 
 def cte_join(named_nodes_resolver, subquery_resolvers, resolver_context, join_field='id', **kwargs):
+    named_nodes_selector = getattr(named_nodes_resolver, 'named_node_selector',
+                                     getattr(named_nodes_resolver, 'connection_nodes_selector',
+                                             getattr(named_nodes_resolver, 'selectable', None)))
+    if named_nodes_selector is None:
+        raise GraphQLImplementationError(
+            f'Context: {resolver_context} Resolver: {named_nodes_resolver.__name__}: '
+            f' Could not resolve named_nodes_selector'
+        )
 
-    named_nodes_selectable = named_nodes_resolver.selectable
-    named_nodes_cte = named_nodes_selectable(**kwargs).cte(resolver_context)
+    if len(subquery_resolvers) > 0:
+        named_nodes_query = named_nodes_selector(**kwargs).cte(resolver_context)
+    else:
+        named_nodes_query = named_nodes_selector(**kwargs).alias(resolver_context)
 
     subqueries = []
     sort_order = []
 
     if hasattr(named_nodes_resolver, 'sort_order'):
-        sort_order.extend(named_nodes_resolver.sort_order(named_nodes_cte, **kwargs))
+        sort_order.extend(named_nodes_resolver.sort_order(named_nodes_query, **kwargs))
 
     for resolver in subquery_resolvers:
-        selectable = resolver.selectable(named_nodes_cte, **kwargs).alias(resolver.interface.__name__)
+        interface_selector = getattr(resolver, 'interface_selector', getattr(resolver, 'selectable', None))
+        if interface_selector is None:
+            raise GraphQLImplementationError(
+                f'Context: {resolver_context} Resolver: {resolver.__name__}: '
+                f' Could not resolve interface_selector'
+            )
+
+        selectable = interface_selector(named_nodes_query, **kwargs).alias(resolver.interface.__name__)
         subqueries.append((resolver.interface, selectable))
         if is_paging(kwargs) and getattr(resolver, 'sort_order', None):
             sort_order.extend(resolver.sort_order(selectable, **kwargs))
@@ -120,7 +137,7 @@ def cte_join(named_nodes_resolver, subquery_resolvers, resolver_context, join_fi
     # Add all the columns from the named node CTE
     for col in get_named_node_resolver_interface_fields(named_nodes_resolver):
         seen_columns.add(col)
-        output_columns.append(named_nodes_cte.c[col])
+        output_columns.append(named_nodes_query.c[col])
 
     # Add the columns from the subqueries based on the interfaces they expose
     for interface, selectable in subqueries:
@@ -129,9 +146,9 @@ def cte_join(named_nodes_resolver, subquery_resolvers, resolver_context, join_fi
                 seen_columns.add(field)
                 output_columns.append(selectable.c[field])
 
-    joined = named_nodes_cte
+    joined = named_nodes_query
     for _, selectable in subqueries:
-        joined = joined.outerjoin(selectable, named_nodes_cte.c[join_field] == selectable.c[join_field])
+        joined = joined.outerjoin(selectable, named_nodes_query.c[join_field] == selectable.c[join_field])
     # Select the output columns from the resulting join
     query = select(output_columns).select_from(joined)
 
@@ -139,25 +156,27 @@ def cte_join(named_nodes_resolver, subquery_resolvers, resolver_context, join_fi
         query = query.distinct()
 
     if len(sort_order) > 0:
-            query = query.order_by(*sort_order)
+        query = query.order_by(*sort_order)
 
     return query
 
 
-def resolve_join(named_node_resolver, interface_resolvers, resolver_context, params, output_type=None, join_field='id',  **kwargs):
+def resolve_join(named_node_resolver, interface_resolvers, resolver_context, params, output_type=None, join_field='id',
+                 **kwargs):
     with db.orm_session() as session:
         query = cte_join(named_node_resolver, interface_resolvers, resolver_context, join_field, **kwargs)
         result = session.connection().execute(query, params).fetchall()
         return [
-            output_type(**{key:value for key, value in row.items()})
+            output_type(**{key: value for key, value in row.items()})
             for row in result
         ] if output_type else result
 
 
 def collect_join_resolvers(interface_resolvers, **kwargs):
     interfaces = [interface
-                   for interface in set(kwargs.get('interfaces', [])) | set(kwargs.get('interface', []))]
-    return [interface_resolvers.get(interface) for interface in interfaces if interface_resolvers.get(interface) is not None]
+                  for interface in set(kwargs.get('interfaces', [])) | set(kwargs.get('interface', []))]
+    return [interface_resolvers.get(interface) for interface in interfaces if
+            interface_resolvers.get(interface) is not None]
 
 
 def resolve_collection(named_node_resolver, interface_resolvers, resolver_context, params, **kwargs):
@@ -168,5 +187,3 @@ def resolve_collection(named_node_resolver, interface_resolvers, resolver_contex
 def resolve_instance(named_node_resolver, interface_resolvers, resolver_context, params, **kwargs):
     resolved = resolve_collection(named_node_resolver, interface_resolvers, resolver_context, params, **kwargs)
     return resolved[0] if len(resolved) == 1 else None
-
-
