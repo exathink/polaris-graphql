@@ -34,3 +34,11 @@ class InterfaceResolver(abc.ABC):
     @abstractmethod
     def interface_selector(named_node_cte, **kwargs):
         pass
+
+
+class SelectableFieldResolver(abc.ABC):
+
+    @staticmethod
+    @abstractmethod
+    def selectable(**kwargs):
+        pass
