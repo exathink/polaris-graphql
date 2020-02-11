@@ -15,6 +15,10 @@ from graphene.types.base import BaseType as GraphqlType
 from sqlalchemy import case
 
 
+class GraphQLImplementationError(Exception):
+    pass
+
+
 def init_tuple(tuple_type, **kwargs):
     return tuple_type(**{field: kwargs.get(field) for field in tuple_type._fields})
 

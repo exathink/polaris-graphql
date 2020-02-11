@@ -410,10 +410,10 @@ def count(selectable):
 
 class ConnectionResolverQuery(ConnectionQuery):
 
-    def __init__(self, named_node_resolver, interface_resolvers, resolver_context, params=None, output_type=None, **kwargs):
+    def __init__(self, connection_resolver, interface_resolvers, resolver_context, params=None, output_type=None, **kwargs):
         super().__init__(**kwargs)
         self.resolver_context = resolver_context
-        self.query = cte_join(named_node_resolver, collect_join_resolvers(interface_resolvers, **kwargs),
+        self.query = cte_join(connection_resolver, collect_join_resolvers(interface_resolvers, **kwargs),
                               resolver_context, **kwargs)
         self.output_type = output_type
         self.params = params

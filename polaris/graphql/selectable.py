@@ -146,9 +146,9 @@ class Selectable(ObjectType):
         )
 
     @classmethod
-    def resolve_connection(cls, parent_relationship, named_node_resolver, params=None, **kwargs):
+    def resolve_connection(cls, parent_relationship, connection_resolver, params=None, **kwargs):
         return ConnectionResolverQuery(
-            named_node_resolver=named_node_resolver,
+            connection_resolver=connection_resolver,
             interface_resolvers=cls._meta.interface_resolvers,
             resolver_context=parent_relationship,
             params=params,
