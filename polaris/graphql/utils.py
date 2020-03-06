@@ -29,22 +29,24 @@ def create_tuple(clazz):
 
 def properties(clazz):
     return [
-        attr[0] for attr in inspect.getmembers(clazz, lambda a: isinstance(a,GraphqlType) or isinstance(a, graphene.Field))
+        attr[0] for attr in inspect.getmembers(
+            clazz,
+            lambda a: isinstance(a, GraphqlType) or isinstance(a, graphene.Field) or isinstance(a, graphene.types.structures.Structure)
+        )
     ]
+
 
 def is_paging(args):
     return 'first' in args or 'before' in args or 'after' in args or 'last' in args
+
 
 def snake_case(name):
     s1 = re.sub('(.)([A-Z][a-z]+)', r'\1_\2', name)
     return re.sub('([a-z0-9])([A-Z])', r'\1_\2', s1).lower()
 
+
 def days_between(start_date, end_date):
     return abs((start_date - end_date).days)
-
-
-
-
 
 
 # SqlAlchmy expression utils
@@ -53,5 +55,5 @@ def nulls_to_zero(column_expr):
         [
             (column_expr == None, 0)
         ],
-        else_= column_expr
+        else_=column_expr
     )
