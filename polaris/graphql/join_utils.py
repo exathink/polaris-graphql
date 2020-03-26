@@ -143,8 +143,14 @@ def cte_join(named_nodes_resolver, subquery_resolvers, resolver_context, join_fi
     for interface, selectable in subqueries:
         for field in properties(interface):
             if field not in seen_columns:
-                seen_columns.add(field)
-                output_columns.append(selectable.c[field])
+                if field in selectable.c:
+                    seen_columns.add(field)
+                    output_columns.append(selectable.c[field])
+                else:
+                    raise GraphQLImplementationError(
+                        f'Context: {resolver_context} Resolver: {resolver.__name__}: '
+                        f' Selectable query for interface {interface} does not define a value for column {field}'
+                    )
 
     joined = named_nodes_query
     for _, selectable in subqueries:
