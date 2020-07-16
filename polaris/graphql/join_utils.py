@@ -12,7 +12,7 @@ from sqlalchemy import text, select, join
 
 from polaris.common import db
 from polaris.graphql.utils import properties
-from .utils import is_paging, GraphQLImplementationError
+from .utils import is_paging, GraphQLImplementationError, is_required
 
 
 def resolve_local_join(result_rows, join_field, output_type):
@@ -147,10 +147,11 @@ def cte_join(named_nodes_resolver, subquery_resolvers, resolver_context, join_fi
                     seen_columns.add(field)
                     output_columns.append(selectable.c[field])
                 else:
-                    raise GraphQLImplementationError(
-                        f'Context: {resolver_context} Resolver: {resolver.__name__}: '
-                        f' Selectable query for interface {interface} does not define a value for column {field}'
-                    )
+                    if is_required(field, interface):
+                        raise GraphQLImplementationError(
+                            f'Context: {resolver_context} Resolver: {resolver.__name__}: '
+                            f' Selectable query for interface {interface} does not define a value for column {field}'
+                        )
 
     joined = named_nodes_query
     for _, selectable in subqueries:

@@ -36,6 +36,16 @@ def properties(clazz):
     ]
 
 
+def is_required(field, interface):
+    attribute = getattr(interface, field, None)
+    if attribute:
+        kwargs = getattr(attribute, 'kwargs', None)
+        if kwargs:
+            return kwargs.get('required')
+    else:
+        raise GraphQLImplementationError(f"The attribute {field} was not found on interface {interface} ")
+
+
 def is_paging(args):
     return 'first' in args or 'before' in args or 'after' in args or 'last' in args
 
