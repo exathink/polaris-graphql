@@ -160,7 +160,11 @@ def cte_join(named_nodes_resolver, subquery_resolvers, resolver_context, join_fi
     query = select(output_columns).select_from(joined)
 
     if 'apply_distinct' in kwargs:
-        query = query.distinct()
+        if hasattr(named_nodes_resolver, 'apply_distinct_columns'):
+            apply_distinct_columns = named_nodes_resolver.apply_distinct_columns()
+            query = query.distinct(*[col for col in query.c if col.name in apply_distinct_columns])
+        else:
+            query = query.distinct()
 
     if len(sort_order) > 0:
         query = query.order_by(*sort_order)
