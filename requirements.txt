@@ -1,7 +1,5 @@
 argh
 pytest
-graphene==2.1.2
-graphene-sqlalchemy==2.0.0
-graphql-core==2.3.2
-graphql-relay==0.4.5
+graphene
+sqlalchemy
 
