@@ -7,6 +7,7 @@
 # confidential.
 
 # Author: Krishna Kumar
+import logging
 
 from sqlalchemy import text, select, join
 
@@ -40,7 +41,7 @@ def text_join(resolvers, resolver_context, join_field='id', **kwargs):
     if len(resolvers) > 0:
         # build a list of output columns for the queries
         # list is built by unqualified names reading from left to right on the list of queries.
-        # if there are duplicate columns between queries the first one encountered is selected and rest are
+        # if there are duplicate columns between queries the summary one encountered is selected and rest are
         # dropped from the output columns. The resulting set of columns must be a valid
         # set of attributes to pass on to the constructor of output_type.
         seen_columns = set()
@@ -136,8 +137,11 @@ def cte_join(named_nodes_resolver, subquery_resolvers, resolver_context, join_fi
 
     # Add all the columns from the named node CTE
     for col in get_named_node_resolver_interface_fields(named_nodes_resolver):
-        seen_columns.add(col)
-        output_columns.append(named_nodes_query.c[col])
+        if col in named_nodes_query.columns:
+            seen_columns.add(col)
+            output_columns.append(named_nodes_query.c[col])
+        else:
+            raise GraphQLImplementationError(f"Named node selector query for {named_nodes_resolver}  does not return an expected column named  {col}")
 
     # Add the columns from the subqueries based on the interfaces they expose
     for interface, selectable in subqueries:
