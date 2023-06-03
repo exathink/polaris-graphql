@@ -127,10 +127,14 @@ def cte_join(named_nodes_resolver, subquery_resolvers, resolver_context, join_fi
                 f' Could not resolve interface_selector'
             )
 
-        selectable = interface_selector(named_nodes_query, **kwargs).alias(resolver.interface.__name__)
-        subqueries.append((resolver.interface, selectable))
-        if is_paging(kwargs) and getattr(resolver, 'sort_order', None):
-            sort_order.extend(resolver.sort_order(selectable, **kwargs))
+        try:
+            selectable = interface_selector(named_nodes_query, **kwargs).alias(resolver.interface.__name__)
+            subqueries.append((resolver.interface, selectable))
+            if is_paging(kwargs) and getattr(resolver, 'sort_order', None):
+                sort_order.extend(resolver.sort_order(selectable, **kwargs))
+
+        except Exception as exc:
+            raise GraphQLImplementationError(f"GraphQLImplementationError resolving interface {resolver.interface}: {str(exc)}")
 
     seen_columns = set()
     output_columns = []
